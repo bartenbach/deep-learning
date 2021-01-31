@@ -33,7 +33,7 @@ def get_hold_out_sets(input: np.array) -> Tuple[np.array, np.array]:
 
 
 # splits training data using k-fold for validation
-def get_k_fold_sets(x: np.array, k: int) -> Tuple[List[Tuple[np.array, np.array]], Tuple[np.array, np.array]]:
+def get_k_fold_sets(x: np.array, k: int) -> Tuple[List[np.array], np.array]:
     set_size = int(len(normalized_x_train) / k)
     training = []
     validation = ()
@@ -47,8 +47,15 @@ def get_k_fold_sets(x: np.array, k: int) -> Tuple[List[Tuple[np.array, np.array]
 
 
 # creates validation set using bootstrap method
-def get_bootstrap_sets(input: np.array) -> List[Tuple[np.array, np.array]]:
-    return None
+def get_bootstrap_sets(input: np.array, k: int, size: int) -> List[np.array]:
+    sets = []
+    for i in range(0, k):
+        selection_locations = np.random.randint(low=0, high=len(input) - 1, size=size)
+        selections = np.empty([50, 32, 32, 3])
+        for j in range(0, len(selection_locations)):
+            selections[j] = input[selection_locations[j]]
+        sets.append(selections)
+    return sets
 
 
 # hold out validation sets
@@ -57,17 +64,22 @@ print("Partitioning sets using hold out validation method...")
 print("Size of training array: " + str(len(train)))
 print("Size of validation array: " + str(len(validate)) + "\n")
 
-# k-fold validation sets
-# TODO does not use cross validation - should be able to take size-1 elements
-# in sets instead and then the last set is the validation set consisting of 1
-# element from each set
+# k-fold validation using cross validation
 # number of sets to use for k-fold
 k = 5
 print("Creating sets using k-fold cross validation with " + str(k) + " sets...")
 (train, validate) = get_k_fold_sets(normalized_x_train, k)
 print("training sets: " + str(len(train)))
+for i in train:
+    print("Size of training data: " + str(len(i)))
 print("items in validation set: " + str(len(validate)) + "\n")
 
-# bootstrap sets
+# creates 'k' sets of 'set_size' random elements
 print("Creating sets using bootstrap validation method...")
-sets = get_bootstrap_sets(normalized_x_train)
+k = 5
+set_size = 50
+print("Creating " + str(k) + " sets of size " + str(set_size))
+sets = get_bootstrap_sets(normalized_x_train, k, set_size)
+print("created training sets: " + str(len(sets)))
+for i in sets:
+    print("Size of training data: " + str(len(i)))
