@@ -1,9 +1,10 @@
-from typing import List, Tuple
-from matplotlib.colors import Normalize
+from typing import Generator, List, Tuple
+
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+from matplotlib.colors import Normalize
 from tensorflow import keras
-import matplotlib.pyplot as plt
 
 # Tuple of numpy arrays
 # x_train, x_test uint8 arrays of RGB image data
@@ -50,12 +51,26 @@ def get_k_fold_sets(x: np.array, k: int) -> Tuple[List[np.array], np.array]:
 def get_bootstrap_sets(input: np.array, k: int, size: int) -> List[np.array]:
     sets = []
     for i in range(0, k):
-        selection_locations = np.random.randint(low=0, high=len(input) - 1, size=size)
+        selection_locations = np.random.randint(
+            low=0, high=len(input) - 1, size=size)
         selections = np.empty([50, 32, 32, 3])
         for j in range(0, len(selection_locations)):
             selections[j] = input[selection_locations[j]]
         sets.append(selections)
     return sets
+
+
+# returns a generator to keep generating batches in the given size
+def get_batch_generator(input: np.array, batch_size: int) -> Generator:
+    index = 0
+    while True:
+        if (index + batch_size) > len(input):
+            index = 0
+            np.random.shuffle(input)
+        print("  [Generation at index: " + str(index) + " ]")
+        batch = input[index:index+batch_size]
+        yield batch
+        index += batch_size
 
 
 # hold out validation sets
@@ -83,3 +98,13 @@ sets = get_bootstrap_sets(normalized_x_train, k, set_size)
 print("created training sets: " + str(len(sets)))
 for i in sets:
     print("Size of training data: " + str(len(i)))
+
+# test batch generator
+batch_size = 16
+num_batch = 10
+print("Creating new batch generator for batch size: " + str(batch_size))
+print("Yielding " + str(num_batch) + " batches...")
+gen = get_batch_generator(train[0], batch_size)
+for i in range(num_batch):
+    batch = gen.__next__()
+    print("batch " + str(i) + ": first: " + str(batch[0][0][0][0]) + " shape: " + str(np.shape(batch)))
