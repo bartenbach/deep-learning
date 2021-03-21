@@ -82,7 +82,7 @@ print("Size of validation array: " + str(len(validate)) + "\n")
 # k-fold validation using cross validation
 # number of sets to use for k-fold
 k = 5
-print("Creating sets using k-fold cross validation with " + str(k) + " sets...")
+print("Creating sets using k-fold cross validation with " + str(k) + " sets..")
 (train, validate) = get_k_fold_sets(normalized_x_train, k)
 print("training sets: " + str(len(train)))
 for i in train:
@@ -107,4 +107,5 @@ print("Yielding " + str(num_batch) + " batches...")
 gen = get_batch_generator(train[0], batch_size)
 for i in range(num_batch):
     batch = gen.__next__()
-    print("batch " + str(i) + ": first: " + str(batch[0][0][0][0]) + " shape: " + str(np.shape(batch)))
+    print("batch " + str(i) + ": first: " + str(batch[0][0][0][0])
+          + " shape: " + str(np.shape(batch)))
