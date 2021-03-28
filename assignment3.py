@@ -1,10 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from PIL import Image
 from tensorflow import keras
 from tensorflow.keras import layers
-from tensorflow.python.keras.utils.np_utils import to_categorical
 
 
 # vastly improved printing function sourced from
@@ -18,7 +16,7 @@ def plot_digits(X: np.array, Y: np.array, num: int) -> None:
         plt.title('Digit:{}'.format(Y[i]))
         plt.xticks([])
         plt.yticks([])
-    plt.show(block=False)
+    plt.show()
 
 
 # -----------
@@ -70,13 +68,14 @@ def get_lenet(input):
 
 
 lenet_model = get_lenet(lenet_x_train)
+lenet_model.summary()
+exit(0)
 lenet_model.compile(
     optimizer='adam',
     loss=tf.keras.losses.SparseCategoricalCrossentropy(),
     metrics='accuracy'
 )
 
-print(y_train.shape)
 history = lenet_model.fit(lenet_x_train,
                           y_train,
                           validation_split=.3,
@@ -92,67 +91,63 @@ plt.xlabel('Epoch')
 plt.plot(history.history['loss'])
 plt.plot(history.history['val_loss'])
 plt.legend(['train loss', 'val loss'], loc='upper right')
-plt.show(block=False)
+plt.show()
 
 # -------------
 # MOBILENET
 # -------------
 
 
-def depthwise_sep_conv(x, filters, alpha, strides=(1, 1)):
-    y = layers.DepthwiseConv2D(
-        (3, 3), padding='same', strides=strides)(x)
-    y = layers.BatchNormalization()(y)
-    y = layers.Activation('relu')(y)
-    y = layers.Conv2D(int(filters * alpha), (1, 1), padding='same')(y)
-    y = layers.BatchNormalization()(y)
-    y = layers.Activation('relu')(y)
-    return y
+IMAGE_SIZE = (224, 224)
 
-
-def get_mobilenet():
-    alpha = 1  # 0 < alpha <= 1
-    x = keras.Input(shape=(28, 28, 1))
-    y = layers.ZeroPadding2D(padding=(2, 2))(x)
-    y = layers.Conv2D(int(32 * alpha), (3, 3), padding='same')(y)
-    y = layers.BatchNormalization()(y)
-    y = layers.Activation('relu')(y)
-    y = depthwise_sep_conv(y, 64, alpha)
-    y = depthwise_sep_conv(y, 128, alpha, strides=(2, 2))
-    y = depthwise_sep_conv(y, 128, alpha)
-    y = depthwise_sep_conv(y, 256, alpha, strides=(2, 2))
-    y = depthwise_sep_conv(y, 256, alpha)
-    y = depthwise_sep_conv(y, 512, alpha, strides=(2, 2))
-    for _ in range(5):
-        y = depthwise_sep_conv(y, 512, alpha)
-    y = depthwise_sep_conv(y, 1024, alpha, strides=(2, 2))
-    y = depthwise_sep_conv(y, 1024, alpha)
-    y = layers.GlobalAveragePooling2D()(y)
-    y = layers.Dense(units=10)(y)
-    y = layers.Activation('softmax')(y)
-    return tf.keras.Model(x, y, name='MobileNet')
-
-
-mobilenet_model = get_mobilenet()
-mobilenet_model.compile(loss='categorical_crossentropy',
-                        optimizer='adam', metrics=["accuracy"])
-mobilenet_model.summary()
-
-mobilenet_y_train = to_categorical(y_train)
-mobilenet_y_test = to_categorical(y_test)
+# fresh data
+(x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
 mobilenet_x_train = tf.keras.utils.normalize(x_train, axis=-1, order=2)
 mobilenet_x_test = tf.keras.utils.normalize(x_test, axis=-1, order=2)
 
+
+def resize_image(x):
+    x = np.resize(x, IMAGE_SIZE)
+    x = np.stack((x,)*3, axis=-1)
+    return x.astype(np.float32)
+
+
+def get_mobilenet(input):
+    inputs = keras.Input(shape=input[0].shape)
+    model = tf.keras.applications.MobileNet(
+        include_top=False,
+        weights='imagenet',
+        input_tensor=inputs,
+        input_shape=input[0].shape,
+        pooling='avg'
+    )
+    for layer in model.layers:
+        layer.trainable = False
+    x = keras.layers.Dense(256, activation='relu')(model.output)
+    x = keras.layers.Dense(10, activation='softmax')(x)
+    mobileNet = tf.keras.Model(inputs, x, name='MobileNet')
+    mobileNet.compile(loss='sparse_categorical_crossentropy',
+                      optimizer='adam', metrics=["accuracy"])
+    return mobileNet
+
+
+mobilenet_x_train = [resize_image(x) for x in x_train]
+mobilenet_x_test = [resize_image(x) for x in x_test]
+mobilenet_x_train = np.array(mobilenet_x_train)
+mobilenet_x_test = np.array(mobilenet_x_test)
+mobilenet_model = get_mobilenet(mobilenet_x_train)
+mobilenet_model.summary()
+
 mobilenet_initial_weights = mobilenet_model.get_weights()
 history = mobilenet_model.fit(mobilenet_x_train,
-                              mobilenet_y_train,
+                              y_train,
                               validation_split=.3,
                               epochs=EPOCHS,
                               shuffle=True)
 mobilenet_optimized_weights = mobilenet_model.get_weights()
 
 test_scores = mobilenet_model.evaluate(
-    mobilenet_x_test, mobilenet_y_test, verbose=2)
+    mobilenet_x_test, y_test, verbose=2)
 
 # Plot error for training and validation
 plt.title('MobileNet MNIST Training error')
@@ -161,7 +156,7 @@ plt.xlabel('Epoch')
 plt.plot(history.history['loss'])
 plt.plot(history.history['val_loss'])
 plt.legend(['train loss', 'val loss'], loc='upper right')
-plt.show(block=False)
+plt.show()
 
 lenet_model = get_lenet(lenet_x_train)
 lenet_model.compile(
@@ -203,7 +198,7 @@ while alpha <= 2.0:
     alpha_history.append(alpha)
     lenet_test_scores = lenet_model.evaluate(lenet_x_test, y_test, verbose=2)
     mobile_test_scores = mobilenet_model.evaluate(
-        mobilenet_x_test, mobilenet_y_test, verbose=2)
+        mobilenet_x_test, y_test, verbose=2)
     lenet_loss_history.append(lenet_test_scores[0])
     mobile_loss_history.append(mobile_test_scores[0])
     print(test_scores)
@@ -212,7 +207,7 @@ while alpha <= 2.0:
 f, ax = plt.subplots()
 plt.plot(alpha_history, lenet_loss_history, '-', label='x')
 plt.plot(alpha_history, mobile_loss_history, '-', label='x')
-ax.legend(['LeNet'], loc=0)
+ax.legend(['LeNet', 'MobileNet'], loc=0)
 ax.set_title('Comparison of LeNet-5 and MobileNet')
 ax.set_xlabel('alpha')
 ax.set_ylabel('loss')
