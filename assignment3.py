@@ -69,7 +69,6 @@ def get_lenet(input):
 
 lenet_model = get_lenet(lenet_x_train)
 lenet_model.summary()
-exit(0)
 lenet_model.compile(
     optimizer='adam',
     loss=tf.keras.losses.SparseCategoricalCrossentropy(),
